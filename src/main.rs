@@ -1,15 +1,18 @@
+mod indexer;
+use indexer::*;
+
 use hex_literal::hex;
-use std::time;
 use web3::{
-    contract::{Contract, Options},
     futures::{future, StreamExt},
+    transports::WebSocket,
     types::{FilterBuilder, H160},
+    Web3,
 };
 
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {
     let _ = env_logger::try_init();
-    let web3 = web3::Web3::new(
+    let web3: Web3<WebSocket> = web3::Web3::new(
         web3::transports::WebSocket::new(
             "wss://eth-goerli.g.alchemy.com/v2/xzLGA007HrDWYtTHz---NktiNAOtTYM3",
         )
@@ -19,7 +22,6 @@ async fn main() -> web3::contract::Result<()> {
 
     let contract = H160::from_slice(&contract_bytes);
 
-    // Filter for Hello event in our contract
     let filter = FilterBuilder::default()
         .address(vec![contract])
         .topics(
