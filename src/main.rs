@@ -31,24 +31,20 @@ async fn main() -> web3::contract::Result<()> {
     let mut threads = Vec::new();
 
     sub.for_each(|log| {
-        let event = RecipeFactoryEventData::from_raw_bytes(log.unwrap().data.0);
+        let l = log.unwrap();
+        let event = RecipeFactoryEventData::from_raw_bytes(&l.data.0);
         let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb").unwrap();
-        let contract_address = &event.recipe_contract_address;
-        dbg!(contract_address);
-        dbg!(event
+        let hashes: Vec<String> = event
             .ingredients
             .iter()
             .map(|ing| format!["{:#x}", ing])
-            .collect::<Vec<String>>());
-        // db.add_recipe(
-        //     &event.recipe_contract_address,
-        //     event
-        //         .ingredients
-        //         .into_iter()
-        //         .map(|ing| format!["{:#x}", ing].as_ref())
-        //         .collect(),
-        // )
-        // .unwrap();
+            .collect();
+        db.add_recipe(
+            &event.recipe_contract_address,
+            hashes.iter().map(|s| &**s).collect(),
+            l.block_number.unwrap_or_default().as_u64() as i64,
+        )
+        .unwrap();
 
         // TODO where is the topic coming from ?
         let ws_clone = ws_url.clone();

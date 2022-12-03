@@ -11,7 +11,7 @@ pub struct RecipeFactoryEventData {
 }
 
 impl RecipeFactoryEventData {
-    pub fn from_raw_bytes(raw_data: Vec<u8>) -> RecipeFactoryEventData {
+    pub fn from_raw_bytes(raw_data: &[u8]) -> RecipeFactoryEventData {
         let mut ingredients: Vec<H256> = Vec::new();
         // Decompose raw data into u8 chunks of 32 bytes
         let chunks: Vec<&[u8]> = raw_data.chunks(32).collect();
