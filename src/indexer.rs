@@ -1,7 +1,10 @@
-use std::str::FromStr;
-
+use super::types::RecipeFactoryEventData;
+use lfb_back::*;
+use std::str;
 use std::thread;
+use std::{str::FromStr, thread::JoinHandle};
 use thiserror::Error;
+use web3::ethabi::{Event, EventParam, Log, ParamType, RawLog};
 use web3::{
     futures::{future, StreamExt},
     transports::WebSocket,
@@ -15,7 +18,7 @@ pub enum IndexerError {
     WebsocketInitializationError(#[from] web3::Error),
 }
 
-async fn get_websocket(url: &str) -> Result<Web3<WebSocket>, IndexerError> {
+pub async fn get_websocket(url: &str) -> Result<Web3<WebSocket>, IndexerError> {
     Ok(web3::Web3::new(
         web3::transports::WebSocket::new(url)
             .await
@@ -23,26 +26,36 @@ async fn get_websocket(url: &str) -> Result<Web3<WebSocket>, IndexerError> {
     ))
 }
 
-fn get_filter(contract: H160) -> Filter {
+pub fn get_filter(contract: H160, topic: [u8; 32]) -> Filter {
     FilterBuilder::default()
         .address(vec![contract])
-        .topics(Some(vec![contract.into()]), None, None, None)
+        .topics(Some(vec![topic.into()]), None, None, None)
         .build()
 }
 
-pub async fn spawn_indexer(address: &str, ws_url: String) {
+pub async fn sub_to_event(
+    address: String,
+    ws_url: String,
+    topic: [u8; 32],
+    db: lfb_back::MongoRep,
+) {
     let web3 = get_websocket(&ws_url).await.unwrap();
     // TODO init connection to the mongo
-    let contract = H160::from_str(address).unwrap();
-    let filter = get_filter(contract);
+    let contract = H160::from_str(&address).unwrap();
+    let filter = get_filter(contract, topic);
     let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
-    let s = thread::spawn(move || {
-        // TODO loop until recipe is received
-        // TODO check when sub dies and how to reconnect
-        sub.for_each(|log| {
-            // TODO parse the log and add to the mongo
-            future::ready(())
-        })
+    let mut threads: Vec<thread::JoinHandle<()>> = Vec::new();
+
+    // TODO loop until recipe is received
+    // TODO check when sub dies and how to reconnect
+    sub.for_each(|log| {
+        // TODO parse the log and add to the mongo
+        future::ready(())
+    })
+    .await;
+
+    println!("Finished other function");
+    threads.into_iter().map(|thread| {
+        thread.join().expect("error joining the thread");
     });
-    s.join().expect("error joining the thread");
 }

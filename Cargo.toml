@@ -11,3 +11,5 @@ hex-literal = "0.3.4"
 tokio = "1.22.0"
 env_logger = "0.10.0"
 thiserror = "1.0"
+lfb-back = {git = "https://github.com/lafinebouche/lfb-back.git", branch="master"}
+serde = "1.0"
