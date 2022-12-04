@@ -1,14 +1,9 @@
-use super::types::RecipeFactoryEventData;
-use lfb_back::*;
-use std::str;
-use std::thread;
-use std::{str::FromStr, thread::JoinHandle};
+use std::{str, str::FromStr, thread};
 use thiserror::Error;
-use web3::ethabi::{Event, EventParam, Log, ParamType, RawLog};
 use web3::{
     futures::{future, StreamExt},
     transports::WebSocket,
-    types::{Filter, FilterBuilder, H160},
+    types::{Block, BlockNumber, Filter, FilterBuilder, H160},
     Web3,
 };
 
@@ -16,6 +11,42 @@ use web3::{
 pub enum IndexerError {
     #[error("error with websocket")]
     WebsocketInitializationError(#[from] web3::Error),
+    #[error("error with mongo repo")]
+    MongoRepositoryError(#[from] lfb_back::MongoRepError),
+}
+
+pub async fn init_main_indexer(
+    url: &str,
+    factory_address: &str,
+) -> Result<Vec<String>, IndexerError> {
+    let w = web3::Web3::new(web3::transports::Http::new(url)?);
+    let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb").unwrap();
+
+    let ongoing_recipes = db.get_recipes_ongoing().map_err(IndexerError::from)?;
+    let indexes: Vec<(&str, i64)> = ongoing_recipes
+        .iter()
+        .map(|x| (&*x.address, x.last_block))
+        .collect::<Vec<(&str, i64)>>();
+
+    let current_block = w.eth().block_number().await?.as_u64();
+    if let Some(last_recipe) = ongoing_recipes
+        .iter()
+        .max_by(|&x, &y| x.last_block.cmp(&y.last_block))
+    {
+        for x in ((last_recipe.last_block as u64)..current_block).step_by(1001) {
+            let logs = w
+                .eth()
+                .logs(
+                    FilterBuilder::default()
+                        .address(vec![H160::from_str(factory_address).unwrap()])
+                        .from_block(BlockNumber::from(x))
+                        .to_block(BlockNumber::from(x + 1000))
+                        .build(),
+                )
+                .await?;
+        }
+    }
+    Ok(vec![])
 }
 
 pub async fn get_websocket(url: &str) -> Result<Web3<WebSocket>, IndexerError> {
