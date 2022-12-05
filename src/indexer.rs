@@ -1,11 +1,14 @@
 use std::{str, str::FromStr, thread};
 use thiserror::Error;
+use types::RecipeFactoryEventData;
 use web3::{
     futures::{future, StreamExt},
     transports::WebSocket,
     types::{Block, BlockNumber, Filter, FilterBuilder, H160},
     Web3,
 };
+
+use crate::types;
 
 #[derive(Debug, Error)]
 pub enum IndexerError {
@@ -23,7 +26,7 @@ pub async fn init_main_indexer(
     let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb").unwrap();
 
     let ongoing_recipes = db.get_recipes_ongoing().map_err(IndexerError::from)?;
-    let indexes: Vec<(&str, i64)> = ongoing_recipes
+    let recipe_contracts: Vec<(&str, i64)> = ongoing_recipes
         .iter()
         .map(|x| (&*x.address, x.last_block))
         .collect::<Vec<(&str, i64)>>();
@@ -34,6 +37,7 @@ pub async fn init_main_indexer(
         .max_by(|&x, &y| x.last_block.cmp(&y.last_block))
     {
         for x in ((last_recipe.last_block as u64)..current_block).step_by(1001) {
+            // get logs
             let logs = w
                 .eth()
                 .logs(
@@ -44,8 +48,23 @@ pub async fn init_main_indexer(
                         .build(),
                 )
                 .await?;
+            // parse logs and add to db
+            let mut events: Vec<RecipeFactoryEventData> = logs
+                .into_iter()
+                .map(|x| types::RecipeFactoryEventData::from_log(&x))
+                .collect();
+            events.iter_mut().for_each(|event| {
+                db.add_recipe(
+                    &event.recipe_contract_address,
+                    event.ingredients.iter_mut().map(|x| x.as_str()).collect(),
+                    event.block,
+                );
+            });
         }
     }
+    // TODO update recipe contracts from logs -> hash map.
+    // TODO all recipe contracts (in one eth query or for each contract?), query logs for IngredientAdded.
+    // If RecipeCompleted, remove from recipe contracts.
     Ok(vec![])
 }
 
@@ -89,4 +108,19 @@ pub async fn sub_to_event(
     threads.into_iter().map(|thread| {
         thread.join().expect("error joining the thread");
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_init_indexer() {
+        init_main_indexer(
+            "https://eth-goerli.g.alchemy.com/v2/u8vzogVpxcy5OZmLdw1SVsgpMKTN-YCc",
+            "CAF3809F289eC0529360604dD8a53B55c94646F2",
+        )
+        .await
+        .unwrap();
+    }
 }
