@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 web3 = "0.17.0"
 hex-literal = "0.3.4"
+hex = "0.3.1"
 tokio = "1.22.0"
 env_logger = "0.10.0"
 thiserror = "1.0"
