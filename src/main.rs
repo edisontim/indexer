@@ -35,7 +35,7 @@ async fn main() -> web3::contract::Result<()> {
         let mut event = RecipeFactoryEventData::from_log(&l);
         let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb").unwrap();
         db.add_recipe(
-            &event.recipe_contract_address,
+            &event.recipe_address,
             event.ingredients.iter_mut().map(|x| x.as_str()).collect(),
             l.block_number.unwrap_or_default().as_u64() as i64,
         )
@@ -46,7 +46,7 @@ async fn main() -> web3::contract::Result<()> {
 
         let s = thread::spawn(move || {
             sub_to_event(
-                event.recipe_contract_address,
+                event.recipe_address,
                 ws_clone,
                 hex!["552ac3e7e359ade147cee1b49895f531576e6991306de88664d7fe6673b214ed"],
                 db,

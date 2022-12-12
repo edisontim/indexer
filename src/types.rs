@@ -4,7 +4,7 @@ use web3::types::Log;
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct RecipeFactoryEventData {
-    pub recipe_contract_address: String,
+    pub recipe_address: String,
     pub ingredients: Vec<String>,
     pub block: i64,
 }
@@ -17,7 +17,7 @@ impl RecipeFactoryEventData {
         let chunks: Vec<&[u8]> = raw_data.chunks(32).collect();
 
         // Index 0 of chunks contains the newly created recipe contract's address
-        let recipe_contract_address = String::from("0x") + &hex::encode(chunks[0].to_vec())[24..];
+        let recipe_address = String::from("0x") + &hex::encode(chunks[0].to_vec())[24..];
 
         // Index 2 of chunks contains number of ingredients in the last byte
         let num_ingredients = chunks[2][31];
@@ -30,7 +30,7 @@ impl RecipeFactoryEventData {
         }
 
         RecipeFactoryEventData {
-            recipe_contract_address: recipe_contract_address,
+            recipe_address: recipe_address,
             ingredients: ingredients,
             block: log.block_number.unwrap_or_default().as_u64() as i64,
         }
@@ -39,6 +39,7 @@ impl RecipeFactoryEventData {
 
 #[derive(PartialEq, Debug)]
 pub struct AddedIngredientEvent {
+    pub recipe_address: String,
     pub topic: String,
     pub hash: String,
     pub owner: String,
@@ -48,11 +49,13 @@ pub struct AddedIngredientEvent {
 impl AddedIngredientEvent {
     pub fn from_log(l: &Log) -> AddedIngredientEvent {
         let topic = String::from("0x") + &hex::encode(l.topics[0]);
+        let recipe_address = String::from("0x") + &hex::encode(l.address);
         let chunks: Vec<&[u8]> = l.data.0.chunks(32).collect();
 
         let hash = String::from("0x") + &hex::encode(chunks[0].to_vec());
         let owner = String::from("0x") + &hex::encode(chunks[1].to_vec())[24..];
         AddedIngredientEvent {
+            recipe_address: recipe_address,
             hash: hash,
             owner: owner,
             topic: topic.to_string(),
@@ -95,7 +98,7 @@ mod tests {
         let event = RecipeFactoryEventData::from_log(&logs[0]);
         assert_eq!(
             RecipeFactoryEventData {
-                recipe_contract_address: String::from("0x2546a136b764e25107308290965aa026a92704cf"),
+                recipe_address: String::from("0x2546a136b764e25107308290965aa026a92704cf"),
                 ingredients: vec![
                     "0x22f641503eeabdc00566e27be38734b69b308fb8d725a6362f1185d5fde190d4"
                         .to_string(),
@@ -138,6 +141,7 @@ mod tests {
         let event = AddedIngredientEvent::from_log(&logs[0]);
         assert_eq!(
             AddedIngredientEvent {
+                recipe_address: String::from("0xC8ba55671BA6cB295014bb1330abc33F4CE5E2e3"),
                 topic: String::from(
                     "0x04483ec0c137383f9f0a636e1d0b03e0d7b301d6b964cf0338137a8d90e0a1dd"
                 ),
