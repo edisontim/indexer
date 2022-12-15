@@ -107,38 +107,50 @@ pub async fn get_websocket(url: &str) -> Result<Web3<WebSocket>, IndexerError> {
     ))
 }
 
-pub fn get_filter(contract: H160, topic: [u8; 32]) -> Filter {
+pub fn get_filter(contract: H160) -> Filter {
     FilterBuilder::default()
         .address(vec![contract])
-        .topics(Some(vec![topic.into()]), None, None, None)
+        .topics(None, None, None, None)
         .build()
 }
 
-pub async fn sub_to_event(
-    address: String,
-    ws_url: String,
-    topic: [u8; 32],
-    db: lfb_back::MongoRep,
-) {
+pub async fn sub_to_event(address: String, ws_url: String, db: lfb_back::MongoRep) {
     let web3 = get_websocket(&ws_url).await.unwrap();
     // TODO init connection to the mongo
     let contract = H160::from_str(&address).unwrap();
-    let filter = get_filter(contract, topic);
+    let filter = get_filter(contract);
     let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
-    let mut threads: Vec<thread::JoinHandle<()>> = Vec::new();
-
+    println!("Subbed to : {}", address);
     // TODO loop until recipe is received
     // TODO check when sub dies and how to reconnect
     sub.for_each(|log| {
+        let l = log.unwrap();
+        let topic = String::from("0x") + &hex::encode(l.topics[0]);
+        let addedIngredientTopic =
+            "0x04483ec0c137383f9f0a636e1d0b03e0d7b301d6b964cf0338137a8d90e0a1dd".to_string();
+        let recipeCompletedTopic =
+            "0x1d413284edcd8d8e4e70583af8454c3010040b97c1f9c641d16e903bda7b9f6a".to_string();
+        match topic {
+            addedIngredientTopic => {
+                let event = AddedIngredientEvent::from_log(&l);
+                db.update_recipe(
+                    &event.recipe_address,
+                    &event.hash,
+                    &event.owner,
+                    event.block,
+                )
+                .unwrap();
+            }
+            recipeCompletedTopic => {
+                db.update_recipe_completed(&address);
+            }
+            _ => (),
+        }
+
         // TODO parse the log and add to the mongo
         future::ready(())
     })
     .await;
-
-    println!("Finished other function");
-    threads.into_iter().map(|thread| {
-        thread.join().expect("error joining the thread");
-    });
 }
 
 #[cfg(test)]
@@ -153,5 +165,33 @@ mod tests {
         )
         .await
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_match_topic() {
+        let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb").unwrap();
+        let address = "0xc250ff18654e552e9f25deb7ccc53c83f484f5a6";
+        let topic = "0x1d413284edcd8d8e4e70583af8454c3010040b97c1f9c641d16e903bda7b9f6a";
+        let addedIngredientTopic =
+            "0x04483ec0c137383f9f0a636e1d0b03e0d7b301d6b964cf0338137a8d90e0a1dd";
+        println!("{}", addedIngredientTopic);
+        let recipeCompletedTopic =
+            "0x1d413284edcd8d8e4e70583af8454c3010040b97c1f9c641d16e903bda7b9f6a";
+        println!("{}", recipeCompletedTopic);
+        let res = match topic {
+            addedIngredientTopic => {
+                println!("Got into AddedIngredient");
+                false
+            }
+            recipeCompletedTopic => {
+                println!("got into RecipeCompleted");
+                db.update_recipe_completed(&address).unwrap()
+            }
+            _ => {
+                print!("got into default");
+                false
+            }
+        };
+        assert_eq!(res, true);
     }
 }

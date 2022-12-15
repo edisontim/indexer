@@ -40,7 +40,6 @@ impl RecipeFactoryEventData {
 #[derive(PartialEq, Debug)]
 pub struct AddedIngredientEvent {
     pub recipe_address: String,
-    pub topic: String,
     pub hash: String,
     pub owner: String,
     pub block: i64,
@@ -48,7 +47,6 @@ pub struct AddedIngredientEvent {
 
 impl AddedIngredientEvent {
     pub fn from_log(l: &Log) -> AddedIngredientEvent {
-        let topic = String::from("0x") + &hex::encode(l.topics[0]);
         let recipe_address = String::from("0x") + &hex::encode(l.address);
         let chunks: Vec<&[u8]> = l.data.0.chunks(32).collect();
 
@@ -58,7 +56,6 @@ impl AddedIngredientEvent {
             recipe_address: recipe_address,
             hash: hash,
             owner: owner,
-            topic: topic.to_string(),
             block: l.block_number.unwrap_or_default().as_u64() as i64,
         }
     }
@@ -142,9 +139,6 @@ mod tests {
         assert_eq!(
             AddedIngredientEvent {
                 recipe_address: String::from("0xC8ba55671BA6cB295014bb1330abc33F4CE5E2e3"),
-                topic: String::from(
-                    "0x04483ec0c137383f9f0a636e1d0b03e0d7b301d6b964cf0338137a8d90e0a1dd"
-                ),
                 hash: String::from(
                     "0x8574ea6bd913dd9b95296e9e5cede2d361f64f9b4a2f641b5fae3a2948be331e"
                 ),
