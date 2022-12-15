@@ -1,17 +1,12 @@
 mod indexer;
 use crate::indexer::*;
-use std::thread;
-use std::{borrow::Borrow, str::FromStr};
-use tokio::runtime::Runtime;
-use tokio::time::*;
+use std::str::FromStr;
 
 mod types;
 use types::*;
 use web3::{
     futures::{future, StreamExt},
-    transports::WebSocket,
-    types::{Filter, FilterBuilder, H160},
-    Web3,
+    types::H160,
 };
 
 #[tokio::main]
