@@ -116,7 +116,8 @@ pub async fn sub_to_event(address: String, ws_url: String, db: lfb_back::MongoRe
     // TODO TEST
     sub.take_while(|log| {
         let l = log.as_ref().unwrap();
-        future::ready(!match_log(l, &address, &db))
+        let is_added_ingredient = match_log(l, &address, &db);
+        future::ready(is_added_ingredient)
     })
     .collect::<Vec<_>>()
     .await;
@@ -134,11 +135,11 @@ fn match_log(l: &Log, address: &str, db: &lfb_back::MongoRep) -> bool {
                 event.block,
             )
             .unwrap();
-            false
+            true
         }
         _ if topic == RECIPE_COMPLETED_TOPIC => {
             db.update_recipe_completed(address).unwrap();
-            true
+            false
         }
         _ => panic!("incorrect topic"),
     }
