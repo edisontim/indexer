@@ -12,12 +12,11 @@ use web3::{
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {
     let _ = env_logger::try_init();
-    let ws_url = "wss://eth-goerli.g.alchemy.com/v2/MV1WUqbDLAUTDyRfl_SquRlnjL64NfQr".to_string();
+    let ws_url = dotenv::var("ALCHEMY_API_WSS_KEY").expect("ALCHEMY_API_WSS_KEY must be set.");
 
-    let recipe_factory_address = "CAF3809F289eC0529360604dD8a53B55c94646F2";
-
+    let recipe_factory_address = dotenv::var("FACTORY_CONTRACT_ADDRESS").unwrap();
     let web3 = indexer::get_websocket(&ws_url).await.unwrap();
-    let contract = H160::from_str(recipe_factory_address).unwrap();
+    let contract = H160::from_str(&recipe_factory_address).unwrap();
     let filter = get_filter(contract);
     let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
 
