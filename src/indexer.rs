@@ -21,10 +21,7 @@ pub enum IndexerError {
     MongoRepositoryError(#[from] lfb_back::MongoRepError),
 }
 
-pub async fn init_main_indexer(
-    url: &str,
-    factory_address: &str,
-) -> Result<Vec<String>, IndexerError> {
+pub async fn init_main_indexer(url: &str, factory_address: &str) -> Result<(), IndexerError> {
     let w = web3::Web3::new(web3::transports::Http::new(url)?);
     let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb")?;
 
@@ -81,7 +78,7 @@ pub async fn init_main_indexer(
             match_log(&l, &address, &db);
         });
     }
-    Ok(vec![])
+    Ok(())
 }
 
 pub async fn get_websocket(url: &str) -> Result<Web3<WebSocket>, IndexerError> {
@@ -105,7 +102,6 @@ pub async fn sub_to_event(address: String, ws_url: String, db: lfb_back::MongoRe
     let filter = get_filter(contract);
     let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
     println!("Subbed to : {}", address);
-    // TODO TEST
     sub.take_while(|log| {
         let l = log.as_ref().unwrap();
         let is_added_ingredient = match_log(l, &address, &db);
