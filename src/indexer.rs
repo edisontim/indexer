@@ -27,7 +27,14 @@ pub async fn init_main_indexer(url: &str, factory_address: &str) -> Result<(), I
 
     // first part: index all the recipes
     let current_block = w.eth().block_number().await?.as_u64();
-    let last_block = db.get_last_block()?;
+    let mut last_block = db.get_last_block()?;
+    if last_block == 0 {
+        last_block = std::env::var("FACTORY_CONTRACT_START_BLOCK")
+            .expect("FACTORY_CONTRACT_START_BLOCK must be set.")
+            .parse::<i64>()
+            //if does not parse, something is wrong, need to panic
+            .unwrap();
+    }
     for x in ((last_block as u64)..current_block).step_by(1001) {
         // get logs
         let logs = w
@@ -140,8 +147,12 @@ mod tests {
     #[tokio::test]
     async fn test_init_indexer() {
         init_main_indexer(
-            "https://eth-goerli.g.alchemy.com/v2/u8vzogVpxcy5OZmLdw1SVsgpMKTN-YCc",
-            "CAF3809F289eC0529360604dD8a53B55c94646F2",
+            dotenv::var("ALCHEMY_API_HTTPS_KEY")
+                .expect("ALCHEMY_API_HTTPS_KEY must be set")
+                .as_str(),
+            dotenv::var("FACTORY_CONTRACT_ADDRESS")
+                .expect("FACTORY_CONTRACT_ADDRESS must be set")
+                .as_str(),
         )
         .await
         .unwrap();

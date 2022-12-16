@@ -14,3 +14,4 @@ env_logger = "0.10.0"
 thiserror = "1.0"
 lfb-back = {git = "https://github.com/lafinebouche/lfb-back.git", branch="master"}
 serde = "1.0"
+dotenv = "0.15.0"

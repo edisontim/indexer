@@ -12,22 +12,21 @@ use web3::{
 #[tokio::main]
 async fn main() -> web3::contract::Result<()> {
     let _ = env_logger::try_init();
+    let ws_url = dotenv::var("ALCHEMY_API_WSS_KEY").expect("ALCHEMY_API_WSS_KEY must be set.");
+    let http_url =
+        dotenv::var("ALCHEMY_API_HTTPS_KEY").expect("ALCHEMY_API_HTTPS_KEY must be set.");
+
+    let recipe_factory_address = dotenv::var("FACTORY_CONTRACT_ADDRESS").unwrap();
+    let web3 = indexer::get_websocket(&ws_url).await.unwrap();
+    let contract = H160::from_str(&recipe_factory_address).unwrap();
     let mut threads = Vec::new();
 
-    // init socket
-    let ws_url = "wss://eth-goerli.g.alchemy.com/v2/MV1WUqbDLAUTDyRfl_SquRlnjL64NfQr".to_string();
-    let http_url =
-        "https://eth-goerli.g.alchemy.com/v2/u8vzogVpxcy5OZmLdw1SVsgpMKTN-YCc".to_string();
-    let web3 = indexer::get_websocket(&ws_url).await.unwrap();
-
     // init subscription
-    let recipe_factory_address = "CAF3809F289eC0529360604dD8a53B55c94646F2";
-    let contract = H160::from_str(recipe_factory_address).unwrap();
     let filter = get_filter(contract);
     let sub = web3.eth_subscribe().subscribe_logs(filter).await.unwrap();
 
     // init the indexing and launch the first listeners based on ongoing recipes
-    init_main_indexer(&http_url, recipe_factory_address)
+    init_main_indexer(&http_url, &recipe_factory_address)
         .await
         .unwrap();
     let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb").unwrap();
