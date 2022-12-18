@@ -21,9 +21,13 @@ pub enum IndexerError {
     MongoRepositoryError(#[from] lfb_back::MongoRepError),
 }
 
-pub async fn init_main_indexer(url: &str, factory_address: &str) -> Result<(), IndexerError> {
+pub async fn init_main_indexer(
+    mongo_uri: String,
+    url: &str,
+    factory_address: &str,
+) -> Result<(), IndexerError> {
     let w = web3::Web3::new(web3::transports::Http::new(url)?);
-    let db = lfb_back::MongoRep::init("mongodb://localhost:27017/".to_string(), "lfb")?;
+    let db = lfb_back::MongoRep::init(mongo_uri, "lfb")?;
 
     // first part: index all the recipes
     let current_block = w.eth().block_number().await?.as_u64();
@@ -147,6 +151,7 @@ mod tests {
     #[tokio::test]
     async fn test_init_indexer() {
         init_main_indexer(
+            dotenv::var("MONGO_URI").expect("MONGO_URI must be st"),
             dotenv::var("ALCHEMY_API_HTTPS_KEY")
                 .expect("ALCHEMY_API_HTTPS_KEY must be set")
                 .as_str(),
